@@ -466,12 +466,17 @@ export class WebviewWidget extends BaseWidget implements StatefulWidget {
                         }
                     }
                     if (cached) {
+                        // ** mst-fix ** this is the most unoptimised way of sending data over the wire. you end up
+                        // with a array of [123,112,11] for every single byte!
                         const data = await cached.body();
+                        const mimeType = mime.getType(normalizedUri.path.toString()) || 'application/octet-stream';
+                        const shouldBeText = ['text/css', 'application/javascript'].includes(mimeType);
+                        console.info('[webView] file: ', mimeType, ', text:', shouldBeText);
                         return this.doSend('did-load-resource', {
                             status: 200,
                             path: requestPath,
-                            mime: mime.getType(normalizedUri.path.toString()) || 'application/octet-stream',
-                            data
+                            mime: mimeType,
+                            data: shouldBeText ? new TextDecoder().decode(data) : data
                         });
                     }
                 }
