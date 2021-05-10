@@ -60,7 +60,7 @@ export class WebSocketCloseEvent {
     private readonly _sender: Object;
     private readonly _socket: ReconnectingWebSocket | WebSocket;
 
-    constructor(sender: Object, socket: ReconnectingWebSocket | WebSocket, code: number, reason: string,) {
+    constructor(sender: Object, socket: ReconnectingWebSocket | WebSocket, code: number, reason: string) {
         this._sender = sender;
         this._socket = socket;
         this._code = code;
