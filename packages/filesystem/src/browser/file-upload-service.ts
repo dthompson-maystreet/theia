@@ -16,7 +16,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { injectable, inject, postConstruct } from '@theia/core/shared/inversify';
+import { injectable, inject, postConstruct, optional } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { CancellationTokenSource, CancellationToken, checkCancelled, cancelled } from '@theia/core/lib/common/cancellation';
 import { Deferred } from '@theia/core/lib/common/promise-util';
@@ -25,6 +25,9 @@ import { Progress } from '@theia/core/lib/common/message-service-protocol';
 import { Endpoint } from '@theia/core/lib/browser/endpoint';
 
 import throttle = require('@theia/core/shared/lodash.throttle');
+import {
+    MessagingFrontendListener, WebSocketCloseEvent,
+} from '@theia/core/lib/browser/messaging/messaging-frontend-listeners';
 
 const maxChunkSize = 64 * 1024;
 
@@ -49,6 +52,9 @@ export class FileUploadService {
 
     @inject(MessageService)
     protected readonly messageService: MessageService;
+
+    @inject(MessagingFrontendListener) @optional()
+    protected readonly messagingFrontendListener: MessagingFrontendListener;
 
     protected uploadForm: FileUploadService.Form;
 
@@ -122,13 +128,20 @@ export class FileUploadService {
         }), 60);
         const deferredUpload = new Deferred<FileUploadResult>();
         const endpoint = new Endpoint({ path: '/file-upload' });
+        const websocketUrl = endpoint.getWebSocketUrl();
+        const possiblyModifiedEndpoint = this.messagingFrontendListener?.onWebSocketOpening(websocketUrl);
+        const socket = new WebSocket((possiblyModifiedEndpoint || endpoint).toString());
         const socketOpen = new Deferred<void>();
-        const socket = new WebSocket(endpoint.getWebSocketUrl().toString());
         socket.onerror = e => {
             socketOpen.reject(e);
             deferredUpload.reject(e);
         };
-        socket.onclose = ({ code, reason }) => deferredUpload.reject(new Error(String(reason || code)));
+        socket.onclose = ({ code, reason }) => {
+            this.messagingFrontendListener?.onWebSocketClosed(new WebSocketCloseEvent(
+                this, socket, code, reason
+            ));
+            deferredUpload.reject(new Error(String(reason || code)));
+        };
         socket.onmessage = ({ data }) => {
             const response = JSON.parse(data);
             if (response.uri) {
@@ -154,7 +167,10 @@ export class FileUploadService {
             }
             socket.close();
         };
-        socket.onopen = () => socketOpen.resolve();
+        socket.onopen = () => {
+            this.messagingFrontendListener?.onWebSocketOpened(socket);
+            socketOpen.resolve();
+        };
         const rejectAndClose = (e: Error) => {
             deferredUpload.reject(e);
             if (socket.readyState === 1) {

@@ -14,12 +14,14 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import { injectable, interfaces, decorate, unmanaged } from 'inversify';
-import { JsonRpcProxyFactory, JsonRpcProxy, Emitter, Event } from '../../common';
-import { WebSocketChannel } from '../../common/messaging/web-socket-channel';
-import { Endpoint } from '../endpoint';
+import { decorate, inject, injectable, interfaces, optional, unmanaged } from 'inversify';
 import ReconnectingWebSocket from 'reconnecting-websocket';
+
+import { Emitter, Event, JsonRpcProxy, JsonRpcProxyFactory } from '../../common';
+import { Endpoint } from '../endpoint';
+import { WebSocketChannel } from '../../common/messaging/web-socket-channel';
 import { AbstractConnectionProvider } from '../../common/messaging/abstract-connection-provider';
+import { MessagingFrontendListener, WebSocketCloseEvent } from './messaging-frontend-listeners';
 
 decorate(injectable(), JsonRpcProxyFactory);
 decorate(unmanaged(), JsonRpcProxyFactory, 0);
@@ -46,21 +48,28 @@ export class WebSocketConnectionProvider extends AbstractConnectionProvider<WebS
 
     protected readonly socket: ReconnectingWebSocket;
 
-    constructor() {
+    protected readonly messagingFrontendListener: MessagingFrontendListener;
+
+    constructor(@inject(MessagingFrontendListener) @optional() messagingFrontendListener: MessagingFrontendListener) {
         super();
+        this.messagingFrontendListener = messagingFrontendListener;
         const url = this.createWebSocketUrl(WebSocketChannel.wsPath);
         const socket = this.createWebSocket(url);
         socket.onerror = console.error;
         socket.onopen = () => {
+            messagingFrontendListener?.onWebSocketOpened(socket);
             this.fireSocketDidOpen();
         };
-        socket.onclose = ({ code, reason }) => {
+        socket.onclose = ({code, reason}) => {
             for (const channel of [...this.channels.values()]) {
                 channel.close(code, reason);
             }
+            messagingFrontendListener?.onWebSocketClosed(new WebSocketCloseEvent(
+                this, socket, code, reason
+            ));
             this.fireSocketDidClose();
         };
-        socket.onmessage = ({ data }) => {
+        socket.onmessage = ({data}) => {
             this.handleIncomingRawMessage(data);
         };
         this.socket = socket;
@@ -89,11 +98,14 @@ export class WebSocketConnectionProvider extends AbstractConnectionProvider<WebS
     }
 
     /**
-     * Creates a websocket URL to the current location
+     * Creates a websocket URL to the current location, asking any optional contributions whether they
+     * would like to augment the `Endpoint` first.
      */
     protected createWebSocketUrl(path: string): string {
-        const endpoint = new Endpoint({ path });
-        return endpoint.getWebSocketUrl().toString();
+        const endpoint = new Endpoint({path});
+        const websocketUrl = endpoint.getWebSocketUrl();
+        const possiblyModifiedEndpoint = this.messagingFrontendListener?.onWebSocketOpening(websocketUrl);
+        return (possiblyModifiedEndpoint || websocketUrl).toString();
     }
 
     /**

@@ -15,8 +15,16 @@
  ********************************************************************************/
 
 import { ContainerModule } from 'inversify';
+import { bindContributionProvider } from '../../common';
+
 import { WebSocketConnectionProvider } from './ws-connection-provider';
+import {
+    MessagingFrontendListener,
+    MessagingFrontendListenerContribution
+} from './messaging-frontend-listeners';
 
 export const messagingFrontendModule = new ContainerModule(bind => {
     bind(WebSocketConnectionProvider).toSelf().inSingletonScope();
+    bind(MessagingFrontendListener).toSelf().inSingletonScope();
+    bindContributionProvider(bind, MessagingFrontendListenerContribution);
 });
