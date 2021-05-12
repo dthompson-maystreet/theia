@@ -168,10 +168,15 @@ export class MessagingContribution implements BackendApplicationContribution, Me
                         console.error('Cannot find a service for the path: ' + path);
                     }
                 } else {
-                    const { id } = message;
+                    const interceptedMessage = this.messagingListener?.onWebSocketChannelMessage(message, socket) || message;
+                    if (!interceptedMessage) {
+                        // The user, for some reason, cleared the message. Abort.
+                        return;
+                    }
+                    const { id } = interceptedMessage;
                     const channel = channels.get(id);
                     if (channel) {
-                        channel.handleMessage(message);
+                        channel.handleMessage(interceptedMessage);
                     } else {
                         console.error('The ws channel does not exist', id);
                     }

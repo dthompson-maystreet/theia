@@ -17,6 +17,8 @@
 import { inject, injectable, named } from 'inversify';
 import { ContributionProvider, MaybePromise } from '../../common';
 
+import { WebSocketChannel } from '../../common/messaging/web-socket-channel';
+
 import * as http from 'http';
 import * as ws from 'ws';
 
@@ -32,6 +34,14 @@ export interface MessagingListenerContribution {
      * @param socket The WebSocket that the connection was upgraded to.
      */
     onDidWebSocketUpgrade(request: http.IncomingMessage, socket: ws): MaybePromise<void>;
+
+    /**
+     * Function invoked when a message is received by a channel.
+     *
+     * @param message The Websocket message received.
+     * @param socket The underlying Websocket.
+     */
+    onWebSocketChannelMessage(message: WebSocketChannel.Message, socket: ws): WebSocketChannel.Message | undefined;
 }
 
 /**
@@ -48,5 +58,12 @@ export class MessagingListener {
      */
     async onDidWebSocketUpgrade(request: http.IncomingMessage, socket: ws): Promise<void> {
         await Promise.all(Array.from(this.messagingListenerContributions.getContributions(), async messagingListener => messagingListener.onDidWebSocketUpgrade(request, socket)));
+    }
+
+    /**
+     * Pushes the supplied message through the chain of interceptors.
+     */
+    onWebSocketChannelMessage(message: WebSocketChannel.Message, socket: ws): WebSocketChannel.Message | undefined {
+        return [...this.messagingListenerContributions.getContributions()].reduce((acc, contribution) => contribution.onWebSocketChannelMessage(acc, socket), message);
     }
 }
