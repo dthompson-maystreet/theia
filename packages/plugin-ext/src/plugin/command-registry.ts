@@ -74,7 +74,12 @@ export class CommandRegistryImpl implements CommandRegistryExt {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     registerHandler(commandId: string, handler: Handler, thisArg?: any): Disposable {
         if (this.handlers.has(commandId)) {
-            throw new Error(`Command "${commandId}" already has handler`);
+            // throw new Error(`Command "${commandId}" already has handler`);
+            // ** mst-fix ** see whether or not this happens...
+            console.warn('[command-registry] command being re-registered!', commandId);
+            return Disposable.create(() => {
+                console.info('[command-registry] command being unregistered!');
+            });
         }
         this.proxy.$registerHandler(commandId);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

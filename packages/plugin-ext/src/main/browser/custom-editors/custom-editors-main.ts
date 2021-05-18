@@ -26,7 +26,7 @@ import { HostedPluginSupport } from '../../../hosted/browser/hosted-plugin';
 import { PluginCustomEditorRegistry } from './plugin-custom-editor-registry';
 import { CustomEditorWidget } from './custom-editor-widget';
 import { Emitter } from '@theia/core';
-import { UriComponents } from '../../../common/uri-components';
+import { theiaUritoUriComponents, UriComponents } from '../../../common/uri-components';
 import { URI } from '@theia/core/shared/vscode-uri';
 import TheiaURI from '@theia/core/lib/common/uri';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
@@ -139,14 +139,14 @@ export class CustomEditorsMainImpl implements CustomEditorsMain, Disposable {
                     widget.onMove(async (newResource: TheiaURI) => {
                         const oldModel = modelRef;
                         modelRef = await this.getOrCreateCustomEditorModel(modelType, newResource, viewType, onMoveCancelTokenSource.token);
-                        this.proxy.$onMoveCustomEditor(identifier.id, URI.file(newResource.path.toString()), viewType);
+                        this.proxy.$onMoveCustomEditor(identifier.id, theiaUritoUriComponents(newResource), viewType);
                         oldModel.dispose();
                     });
                 }
 
                 const _cancellationSource = new CancellationTokenSource();
                 await this.proxy.$resolveWebviewEditor(
-                    URI.file(resource.path.toString()),
+                    theiaUritoUriComponents(resource),
                     identifier.id,
                     viewType,
                     this.labelProvider.getName(resource)!,
@@ -276,7 +276,7 @@ export class MainCustomEditorModel implements CustomEditorModel {
         editorPreferences: EditorPreferences,
         cancellation: CancellationToken,
     ): Promise<MainCustomEditorModel> {
-        const { editable } = await proxy.$createCustomDocument(URI.file(resource.path.toString()), viewType, undefined, cancellation);
+        const { editable } = await proxy.$createCustomDocument(theiaUritoUriComponents(resource), viewType, undefined, cancellation);
         return new MainCustomEditorModel(proxy, viewType, resource, editable, undoRedoService, fileService, editorPreferences);
     }
 
