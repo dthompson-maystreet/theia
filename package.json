@@ -8,7 +8,8 @@
   },
   "resolutions": {
     "**/@types/node": "12",
-    "**/node-abi": "^2.18.0"
+    "**/node-abi": "^2.18.0",
+    "electron": "^11.0.1"
   },
   "devDependencies": {
     "@types/chai-string": "^1.4.0",
