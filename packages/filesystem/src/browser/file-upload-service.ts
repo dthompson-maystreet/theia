@@ -130,6 +130,7 @@ export class FileUploadService {
         const endpoint = new Endpoint({ path: '/file-upload' });
         const websocketUrl = endpoint.getWebSocketUrl();
         const possiblyModifiedEndpoint = this.messagingFrontendListener?.onWebSocketOpening(websocketUrl);
+        console.info('[doUpload] endpoint: ', possiblyModifiedEndpoint.toString());
         const socket = new WebSocket((possiblyModifiedEndpoint || endpoint).toString());
         const socketOpen = new Deferred<void>();
         socket.onerror = e => {
